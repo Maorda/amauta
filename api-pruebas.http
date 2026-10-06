@@ -1,0 +1,61 @@
+### Configuración de Variables Globales
+@baseUrl = http://localhost:3000/remates
+
+### 📥 PRUEBA 1: Ingesta Masiva del Master JSON (Simulación de Scraper)
+POST {{baseUrl}}/ingesta
+Content-Type: application/json
+
+{
+  "codigoRemate": "REM-2026-99541",
+  "convocatoria": "PRIMERA CONVOCATORIA",
+  "tasacionDolares": 38728.15,
+  "precioBaseDolares": 25818.77,
+  "json_remaju": {
+    "demandados": ["Dante Perez", "Cesar Torres"],
+    "demandantes": ["Augusto Melgar", "Manuel Gonzales"],
+    "direccion": "Avenida España N° 1911, Trujillo",
+    "cartel": false
+  },
+  "json_sunarp": {
+    "detallesVarios": [
+      { "gravamen": "PRIMER GRAVAMEN - HIPOTECA" },
+      { "otros": "EMBARGO A FAVOR DE BANCO DE CREDITO HASTA POR US$ 18,000.00" }
+    ]
+  },
+  "inmuebles": [
+    {
+      "partidaRegistral": "03017995",
+      "tipoInmueble": "CASA",
+      "direccion": "Avenida España N° 1911, Trujillo",
+      "porcentajeARematar": "100%"
+    }
+  ],
+  "cronograma": [
+    {
+      "fase": "Presentación de Ofertas",
+      "fechaInicio": "2026-10-21T12:00:00Z",
+      "fechaFin": "2026-10-22T23:59:59Z"
+    }
+  ],
+  "expedienteDatosPoderJudicial": {
+    "numeroExpediente": "11284-2014-0-1817-JR-CO-10",
+    "juez": "PUICAN VILLACREZ ZOILA NELLY",
+    "materia": "EJECUCION DE GARANTIAS"
+  }
+}
+
+### 🧠 PRUEBA 2: Consulta Genérica Estructurada por la IA
+POST {{baseUrl}}/consulta
+Content-Type: application/json
+
+{
+  "where": {
+    "precioBaseDolares": { "lt": 30000 },
+    "convocatoria": "PRIMERA CONVOCATORIA"
+  },
+  "orderBy": [
+    { "precioBaseDolares": "asc" }
+  ],
+  "page": 1,
+  "limit": 5
+}

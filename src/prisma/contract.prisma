@@ -1,0 +1,45 @@
+// src/prisma/contract.prisma
+
+datasource db {
+  provider = "mongodb"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/// Entidad raíz que define el contrato de datos para la colección "remates" en MongoDB Atlas.
+/// Diseñado con tipos Json nativos para dar flexibilidad a la ingesta de Sunarp y el Poder Judicial.
+model Remate {
+  // Identificador único nativo de MongoDB (ObjectId)
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Código de remate de origen (E.g., REM-2026-X). Usado para operaciones Upsert.
+  codigoRemate  String   @unique
+  
+  // Datos financieros y administrativos generales
+  convocatoria  String
+  tasacionDolares Float
+  precioBaseDolares Float
+  
+  // JSON estructurado del REmaJU: { demandados: [], demandantes: [], direccion: string, cartel: boolean }
+  jsonRemaju    Json
+  
+  // JSON estructurado de Sunarp: { detallesVarios: [ { gravamen: string }, { otros: string } ] }
+  jsonSunarp    Json
+  
+  // Array de objetos JSON que lista los inmuebles y sus partidas registrales indexadas
+  inmuebles     Json     
+  
+  // Flujo de fechas e hitos del remate judicial
+  cronograma    Json     @default("[]")
+  
+  // Metadatos de seguimiento del expediente del Poder Judicial (Juez, especialista, resoluciones)
+  expedienteDatosPoderJudicial Json @default("{}")
+
+  // Trazabilidad temporal (Auditoría automática de MongoDB)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("remates") // Nombre físico de la colección dentro de MongoDB Atlas
+}
