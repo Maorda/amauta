@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { envValidationSchema } from './config/env.validation';
-import { PrismaModule } from './prisma/prisma.module';
 import { RematesModule } from './remates/remates.module';
 
 @Module({
@@ -18,10 +17,10 @@ import { RematesModule } from './remates/remates.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGO_URI'),
+        uri: configService.get<string>('DATABASE_URL'),
       }),
     }),
-    PrismaModule,
+
     RematesModule,
   ],
 })

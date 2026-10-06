@@ -1,83 +1,57 @@
-// master-ingesta.dto.ts
+// src/remates/dto/master-ingesta.dto.ts
 import { Type } from 'class-transformer';
-import {
-    IsArray,
-    IsBoolean,
-    IsNotEmpty,
-    IsNumber,
-    IsOptional,
-    IsString,
-    ValidateNested
-} from 'class-validator';
+import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
 
-export class JsonRemajuDto {
-    @IsArray()
-    @IsString({ each: true })
-    demandados: string[];
-
-    @IsArray()
-    @IsString({ each: true })
-    demandantes: string[];
-
-    @IsString()
-    @IsNotEmpty()
-    direccion: string;
-
-    @IsBoolean()
-    cartel: boolean;
+class ParteProcesalDto {
+    @IsString() @IsNotEmpty() rol!: string;
+    @IsString() @IsNotEmpty() tipoPersona!: string;
+    @IsOptional() @IsString() apellidoPaternoRazonSocial?: string;
+    @IsOptional() @IsString() apellidoMaterno?: string;
+    @IsString() @IsNotEmpty() nombres!: string;
 }
 
-export class JsonSunarpDto {
-    @IsArray()
-    detallesVarios: Record<string, any>[]; // Recibe la estructura de gravámenes variables
+class ExpedienteJudicialDto {
+    @IsString() @IsNotEmpty() numeroExpediente!: string;
+    @IsOptional() @IsString() organoJurisdiccional?: string;
+    @IsOptional() @IsString() distritoJudicial?: string;
+    @IsOptional() @IsString() juez?: string;
+    @IsOptional() @IsString() especialistaLegal?: string;
+    @IsOptional() @IsString() materia?: string;
+    @IsOptional() @IsString() estado?: string;
+
+    @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ParteProcesalDto)
+    partes?: ParteProcesalDto[];
+
+    @IsOptional() @IsArray()
+    historialSeguimiento?: any[];
 }
 
-export class InmuebleDto {
-    @IsString()
-    @IsNotEmpty()
-    partidaRegistral: string;
-
-    @IsString()
-    tipoInmueble: string;
-
-    @IsString()
-    direccion: string;
-
-    @IsString()
-    porcentajeARematar: string;
+class InmuebleSunarpDto {
+    @IsString() @IsNotEmpty() partidaRegistral!: string;
+    @IsOptional() @IsString() tipoInmueble?: string;
+    @IsString() @IsNotEmpty() direccion!: string;
+    @IsOptional() @IsArray() cargasYGravamenes?: any[];
+    @IsOptional() @IsString() porcentajeARematar?: string;
 }
 
 export class IngestaMasterDto {
-    @IsString()
-    @IsNotEmpty()
-    codigoRemate: string;
+    @IsString() @IsNotEmpty() codigoRemate!: string;
+    @IsOptional() @IsString() convocatoria?: string;
+    @IsOptional() @IsNumber() tasacionDolares?: number;
+    @IsOptional() @IsNumber() precioBaseDolares?: number;
+    @IsOptional() @IsNumber() oblajeDolares?: number;
+    @IsOptional() @IsNumber() tipoCambioSbs?: number;
+    @IsOptional() @IsNumber() arancelSoles?: number;
 
-    @IsString()
-    convocatoria: string;
+    @ValidateNested() @Type(() => ExpedienteJudicialDto)
+    expediente!: ExpedienteJudicialDto;
 
-    @IsNumber()
-    tasacionDolares: number;
+    @IsArray() @ValidateNested({ each: true }) @Type(() => InmuebleSunarpDto)
+    inmuebles!: InmuebleSunarpDto[];
 
-    @IsNumber()
-    precioBaseDolares: number;
-
-    // Integración de los JSON específicos definidos en tu modelo de negocio
-    @ValidateNested()
-    @Type(() => JsonRemajuDto)
-    json_remaju: JsonRemajuDto;
-
-    @ValidateNested()
-    @Type(() => JsonSunarpDto)
-    json_sunarp: JsonSunarpDto;
-
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => InmuebleDto)
-    inmuebles: InmuebleDto[];
+    @IsOptional() @IsArray()
+    cronograma?: any[];
 
     @IsOptional()
-    cronograma: any[];
-
-    @IsOptional()
-    expedienteDatosPoderJudicial: any;
+    metadataScraping?: any;
 }

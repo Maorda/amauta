@@ -1,156 +1,109 @@
+// src/remates/remates.service.ts
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client'; // 💡 Importar namespace de Prisma
-import { IngestaMasterDto } from './dto/master-ingesta.dto';
-import { ConsultaGenericaIaDto } from './dto/consulta-generica-ia.dto';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Remate, RemateDocument } from './schemas/remate.schema.js';
+import { IngestaMasterDto } from './dto/master-ingesta.dto.js';
+import { ConsultaGenericaIaDto } from './dto/consulta-generica-ia.dto.js';
 
 @Injectable()
 export class RematesService {
     private readonly logger = new Logger(RematesService.name);
 
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        @InjectModel(Remate.name) private readonly remateModel: Model<RemateDocument>,
+    ) { }
 
+    /**
+     * FASE 1: Ingesta Masiva NoSQL nativa (Upsert)
+     * Sincronizada con el esquema de sub-documentos anidados
+     */
     async procesarIngestaMaster(dto: IngestaMasterDto) {
         try {
-            this.logger.log(`Iniciando ingesta para el remate código: ${dto.codigoRemate}`);
+            this.logger.log(`[Mongoose] Iniciando ingesta para remate: ${dto.codigoRemate}`);
 
-            const nuevoRemate = await this.prisma.remate.upsert({
-                where: { codigoRemate: dto.codigoRemate },
-                update: {
-                    convocatoria: dto.convocatoria,
-                    tasacionDolares: dto.tasacionDolares,
-                    precioBaseDolares: dto.precioBaseDolares,
-                    // 💡 SOLUCIÓN: Casteo seguro usando (dto.campo as unknown as Prisma.InputJsonValue)
-                    jsonRemaju: dto.json_remaju as unknown as Prisma.InputJsonValue,
-                    jsonSunarp: dto.json_sunarp as unknown as Prisma.InputJsonValue,
-                    inmuebles: dto.inmuebles as unknown as Prisma.InputJsonValue,
-                    cronograma: dto.cronograma
-                        ? (dto.cronograma as unknown as Prisma.InputJsonValue)
-                        : undefined,
-                    expedienteDatosPoderJudicial: dto.expedienteDatosPoderJudicial
-                        ? (dto.expedienteDatosPoderJudicial as unknown as Prisma.InputJsonValue)
-                        : undefined,
-                },
-                create: {
-                    codigoRemate: dto.codigoRemate,
-                    convocatoria: dto.convocatoria,
-                    tasacionDolares: dto.tasacionDolares,
-                    precioBaseDolares: dto.precioBaseDolares,
-                    // 💡 SOLUCIÓN: Mismo casteo doble para la etapa de creación
-                    jsonRemaju: dto.json_remaju as unknown as Prisma.InputJsonValue,
-                    jsonSunarp: dto.json_sunarp as unknown as Prisma.InputJsonValue,
-                    inmuebles: dto.inmuebles as unknown as Prisma.InputJsonValue,
-                    cronograma: dto.cronograma
-                        ? (dto.cronograma as unknown as Prisma.InputJsonValue)
-                        : ([] as unknown as Prisma.InputJsonValue),
-                    expedienteDatosPoderJudicial: dto.expedienteDatosPoderJudicial
-                        ? (dto.expedienteDatosPoderJudicial as unknown as Prisma.InputJsonValue)
-                        : ({} as unknown as Prisma.InputJsonValue),
-                },
-            });
-
-            this.logger.log(`Remate ${dto.codigoRemate} guardado/actualizado exitosamente.`);
-            return {
-                success: true,
-                id: nuevoRemate.id,
-                message: 'Master JSON procesado correctamente en MongoDB Atlas.',
+            // 💡 ADAPTACIÓN CRÍTICA: Mapeamos los campos del DTO a la estructura real de tu esquema NoSQL
+            const dataAGuardar = {
+                codigoRemate: dto.codigoRemate,
+                convocatoria: dto.convocatoria,
+                tasacionDolares: dto.tasacionDolares,
+                precioBaseDolares: dto.precioBaseDolares,
+                oblajeDolares: dto.oblajeDolares,
+                tipoCambioSbs: dto.tipoCambioSbs,
+                arancelSoles: dto.arancelSoles,
+                expediente: dto.expediente, // Objeto estructurado anidado
+                inmuebles: dto.inmuebles,   // Array de inmuebles
+                cronograma: dto.cronograma || [],
+                metadataScraping: dto.metadataScraping || {},
             };
 
-        } catch (error) {
-            this.logger.error(`Error procesando la ingesta del remate ${dto.codigoRemate}:`, error.stack);
+            const nuevoRemate = await this.remateModel.findOneAndUpdate(
+                { codigoRemate: dto.codigoRemate },
+                dataAGuardar,
+                { upsert: true, new: true, runValidators: true },
+            );
+
+            this.logger.log(`[Mongoose] Remate ${dto.codigoRemate} guardado/actualizado con éxito.`);
+
+            return {
+                success: true,
+                message: 'Master JSON procesado correctamente en MongoDB Atlas vía Mongoose.',
+                id: nuevoRemate._id,
+            };
+        } catch (error: any) {
+            this.logger.error(`Error en ingesta Mongoose: ${error.message}`, error.stack);
             throw new InternalServerErrorException('Error interno al guardar el Master JSON en la base de datos.');
         }
     }
 
+    /**
+     * FASE 2: Consulta Genérica Estructurada para n8n / IA
+     * Soporta búsquedas por sub-documentos usando notación de puntos de forma nativa
+     */
     async consultaGenericaParaIa(filtroDto: ConsultaGenericaIaDto) {
-        // 💡 Asignación de valores por defecto para evitar NaN o Infinity
-        const { where, orderBy, page = 1, limit = 10, select, cursor } = filtroDto;
-        const paginaSegura = Math.max(1, page);
-
-        // 💡 Uso de tipado estricto de Prisma
-        const queryOptions: Prisma.RemateFindManyArgs = {
-            where,
-            orderBy: orderBy || [{ createdAt: 'desc' }],
-            take: limit,
-        };
-
-        if (select && Object.keys(select).length > 0) {
-            queryOptions.select = select as Prisma.RemateSelect;
-        }
-
-        if (cursor) {
-            queryOptions.skip = 1;
-            queryOptions.cursor = { id: cursor };
-        } else {
-            queryOptions.skip = (paginaSegura - 1) * limit;
-        }
-
-        let total = 0;
-        let datos: any[] = [];
-
-        // 💡 Optimización: Solo contamos si NO usamos cursor
-        if (cursor) {
-            datos = await this.prisma.remate.findMany(queryOptions);
-        } else {
-            [total, datos] = await this.prisma.$transaction([
-                this.prisma.remate.count({ where }),
-                this.prisma.remate.findMany(queryOptions),
-            ]);
-        }
-
-        const ultimoElemento = datos[datos.length - 1];
-        const siguienteCursor = ultimoElemento ? ultimoElemento.id : null;
-
-        return {
-            meta: {
-                limitePorPagina: limit,
-                ...(cursor
-                    ? { siguienteCursor }
-                    : {
-                        totalRegistros: total,
-                        paginaActual: paginaSegura,
-                        totalPaginas: Math.ceil(total / limit)
-                    }
-                )
-            },
-            resultados: datos,
-        };
-    }
-
-    async busquedaTextoAvanzadaParaIa(terminoBusqueda: string, limite: number = 10) {
         try {
-            const resultadoRaw = await this.prisma.$runCommandRaw({
-                aggregate: 'remates',
-                pipeline: [
-                    {
-                        $search: { index: 'default', text: { query: terminoBusqueda, path: ['jsonRemaju.demandados', 'jsonSunarp.detallesVarios.gravamen', 'jsonSunarp.detallesVarios.otros'], fuzzy: { maxEdits: 2 } } }
-                    }, { $limit: limite },
-                    {
-                        $project: {
-                            _id: 1,
-                            codigoRemate: 1,
-                            precioBaseDolares: 1,
-                            jsonRemaju: 1,
-                            jsonSunarp: 1,
-                            score: { $meta: 'searchScore' }
-                        }
-                    }
-                ],
-                cursor: {}
-            });
+            const { where, orderBy, page = 1, limit = 20, select } = filtroDto;
+            const skip = (page - 1) * limit;
 
-            // 💡 Optional chaining seguro
-            const documentos = (resultadoRaw as any)?.cursor?.firstBatch ?? [];
+            // 1. Mapear filtros 'where' (MongoDB y Mongoose resuelven paths anidados automáticamente)
+            const query = this.remateModel.find(where || {});
+
+            // 2. Aplicar Proyección Dinámica (Select) para ahorrar ancho de banda en Render
+            if (select && Object.keys(select).length > 0) {
+                query.select(select);
+            }
+
+            // 3. Aplicar Ordenamiento Dinámico
+            if (orderBy && orderBy.length > 0) {
+                const sortObj: any = {};
+                orderBy.forEach((order) => {
+                    Object.keys(order).forEach((key) => {
+                        sortObj[key] = order[key] === 'asc' ? 1 : -1;
+                    });
+                });
+                query.sort(sortObj);
+            }
+
+            // 4. Paginación y Ejecución eficiente en paralelo
+            query.skip(skip).limit(limit);
+
+            const [total, datos] = await Promise.all([
+                this.remateModel.countDocuments(where || {}),
+                query.exec(),
+            ]);
 
             return {
-                totalResultados: documentos.length,
-                terminoBuscado: terminoBusqueda,
-                resultados: documentos,
+                meta: {
+                    totalRegistros: total,
+                    limitePorPagina: limit,
+                    paginaActual: page,
+                    totalPaginas: Math.ceil(total / limit),
+                },
+                resultados: datos,
             };
-
-        } catch (error) {
-            this.logger.error('Error en la búsqueda avanzada de Atlas Search', error instanceof Error ? error.stack : error);
-            throw new InternalServerErrorException('Error al procesar la búsqueda avanzada de texto en la base de datos.');
+        } catch (error: any) {
+            this.logger.error(`Error en consulta Mongoose: ${error.message}`);
+            throw new InternalServerErrorException('Error al procesar la consulta genérica en MongoDB.');
         }
     }
 }

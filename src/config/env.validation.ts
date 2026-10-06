@@ -12,7 +12,7 @@ export const envValidationSchema = Joi.object({
     // Conexión obligatoria a MongoDB Atlas para Prisma
     DATABASE_URL: Joi.string()
         .required()
-        .pattern(/^mongodb\+srv:\/\//)
+        .pattern(/^mongodb(\+srv)?:\/\//)
         .message('DATABASE_URL debe ser una cadena válida de MongoDB Atlas (mongodb+srv://)'),
 
     // Configuración de Seguridad para producción

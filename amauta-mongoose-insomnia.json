@@ -1,0 +1,102 @@
+{
+    "_type": "export",
+    "__export_format": 4,
+    "__export_date": "2026-10-06T22:20:00.000Z",
+    "__export_source": "insomnia.desktop.app:v10.0.0",
+    "resources": [
+        {
+            "_id": "wrk_amauta_anidado",
+            "parentId": null,
+            "modified": 1793924400000,
+            "created": 1793924400000,
+            "name": "Amauta API - Sub-Esquemas Anidados",
+            "description": "Colección optimizada para la ingesta y consulta estructurada de expedientes judiciales e inmuebles Sunarp.",
+            "_type": "workspace"
+        },
+        {
+            "_id": "env_local_anidado",
+            "parentId": "wrk_amauta_anidado",
+            "modified": 1793924400000,
+            "created": 1793924400000,
+            "name": "Entorno Local Mongoose",
+            "data": {
+                "base_url": "http://localhost:3000/remates",
+                "api_key_secret": "coloca_aqui_tu_token_de_32_caracteres_del_env"
+            },
+            "dataPropertyOrder": {
+                "&": [
+                    "base_url",
+                    "api_key_secret"
+                ]
+            },
+            "color": null,
+            "isPrivate": false,
+            "_type": "environment"
+        },
+        {
+            "_id": "req_ingesta_anidada",
+            "parentId": "wrk_amauta_anidado",
+            "modified": 1793924400000,
+            "created": 1793924400000,
+            "url": "{{ _.base_url }}/ingesta",
+            "name": "Fase 1: Ingesta Masiva (Scraper)",
+            "method": "POST",
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"codigoRemate\": \"REM-2026-99541\",\n  \"convocatoria\": \"PRIMERA CONVOCATORIA\",\n  \"tasacionDolares\": 38728.15,\n  \"precioBaseDolares\": 25818.77,\n  \"oblajeDolares\": 3872.81,\n  \"tipoCambioSbs\": 3.75,\n  \"arancelSoles\": 450.00,\n  \"expediente\": {\n    \"numeroExpediente\": \"11284-2024-0-1817-JR-CO-10\",\n    \"organoJurisdiccional\": \"1° JUZGADO CIVIL\",\n    \"distritoJudicial\": \"ANCASH\",\n    \"juez\": \"PUICAN VILLACREZ ZOILA NELLY\",\n    \"especialistaLegal\": \"ALVAREZ ROJAS CARLOS\",\n    \"materia\": \"EJECUCION DE GARANTIAS\",\n    \"estado\": \"EN TRÁMITE\",\n    \"partes\": [\n      {\n        \"rol\": \"DEMANDADO\",\n        \"tipoPersona\": \"NATURAL\",\n        \"apellidoPaternoRazonSocial\": \"Perez\",\n        \"apellidoMaterno\": \"Quispe\",\n        \"nombres\": \"Dante\"\n      },\n      {\n        \"rol\": \"DEMANDANTE\",\n        \"tipoPersona\": \"JURIDICA\",\n        \"apellidoPaternoRazonSocial\": \"BANCO DE CREDITO DEL PERU\",\n        \"apellidoMaterno\": \"\",\n        \"nombres\": \"BCP\"\n      }\n    ],\n    \"historialSeguimiento\": []\n  },\n  \"inmuebles\": [\n    {\n      \"partidaRegistral\": \"03017995\",\n      \"tipoInmueble\": \"CASA\",\n      \"direccion\": \"Jr. Mariano Melgar 535, Independencia, Huaraz\",\n      \"porcentajeARematar\": \"100%\",\n      \"cargasYGravamenes\": [\n        { \"gravamen\": \"PRIMER GRAVAMEN - HIPOTECA\" }\n      ]\n    }\n  ],\n  \"cronograma\": [\n    {\n      \"fase\": \"Presentación de Ofertas\",\n      \"fechaInicio\": \"2026-10-10T08:00:00.000Z\",\n      \"fechaFin\": \"2026-10-15T16:00:00.000Z\"\n    }\n  ],\n  \"metadataScraping\": {\n    \"urlOrigen\": \"https://pj.gob.pe\",\n    \"ejecutadoPor\": \"Scraper-Huaraz-V2\"\n  }\n}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                },
+                {
+                    "name": "x-api-key",
+                    "value": "{{ _.api_key_secret }}"
+                }
+            ],
+            "authentication": {},
+            "metaSortKey": -1793924400000,
+            "isPrivate": false,
+            "_type": "request"
+        },
+        {
+            "_id": "req_consulta_anidada_ia",
+            "parentId": "wrk_amauta_anidado",
+            "modified": 1793924400000,
+            "created": 1793924400000,
+            "url": "{{ _.base_url }}/consulta",
+            "name": "Fase 2: Consulta Genérica (IA / n8n)",
+            "method": "POST",
+            "body": {
+                "mimeType": "application/json",
+                "text": "{\n  \"where\": {\n    \"precioBaseDolares\": { \"$lte\": 30000 },\n    \"expediente.materia\": \"EJECUCION DE GARANTIAS\",\n    \"inmuebles.direccion\": { \"$regex\": \"Huaraz\", \"$options\": \"i\" }\n  },\n  \"select\": {\n    \"_id\": true,\n    \"codigoRemate\": true,\n    \"precioBaseDolares\": true,\n    \"expediente.juez\": true,\n    \"inmuebles.partidaRegistral\": true\n  },\n  \"orderBy\": [\n    { \"precioBaseDolares\": \"asc\" }\n  ],\n  \"page\": 1,\n  \"limit\": 10\n}"
+            },
+            "headers": [
+                {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                }
+            ],
+            "authentication": {},
+            "metaSortKey": -1793924300000,
+            "isPrivate": false,
+            "_type": "request"
+        },
+        {
+            "_id": "req_health_anidado",
+            "parentId": "wrk_amauta_anidado",
+            "modified": 1793924400000,
+            "created": 1793924400000,
+            "url": "http://localhost:3000/remates/health",
+            "name": "Monitoreo: Health Check (Render)",
+            "method": "GET",
+            "body": {},
+            "headers": [],
+            "authentication": {},
+            "metaSortKey": -1793924200000,
+            "isPrivate": false,
+            "_type": "request"
+        }
+    ]
+}

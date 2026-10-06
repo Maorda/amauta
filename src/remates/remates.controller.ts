@@ -13,8 +13,9 @@ import {
 import { RematesService } from './remates.service';
 import { IngestaMasterDto } from './dto/master-ingesta.dto';
 import { ConsultaGenericaIaDto } from './dto/consulta-generica-ia.dto';
-import { SanitizeSearchPipe } from 'src/common/pipes/sanitize-search.pipe';
-import { ApiKeyGuard } from 'src/common/guards/api-key.guard';
+import { } from '../common/pipes/sanitize-search.pipe';
+import { SanitizeSearchPipe } from '../common/pipes/sanitize-search.pipe';
+import { ApiKeyGuard } from '../common/guards/api-key.guard';
 
 @Controller('remates')
 export class RematesController {

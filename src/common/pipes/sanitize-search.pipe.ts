@@ -1,46 +1,49 @@
-// sanitize-search.pipe.ts
-import { PipeTransform, Injectable, BadRequestException } from '@nestjs/common';
+// src/common/pipes/sanitize-search.pipe.ts
+import { ArgumentMetadata, Injectable, PipeTransform, BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class SanitizeSearchPipe implements PipeTransform {
-    transform(value: any) {
-        if (typeof value === 'string') {
-            return this.sanitizeString(value);
+    transform(value: any, metadata: ArgumentMetadata) {
+        // 💡 Si no hay valor o no es un objeto/string, lo dejamos pasar
+        if (!value) return value;
+
+        // Si es una petición de consulta estructurada (Body de la IA), sanitizamos quirúrgicamente
+        if (typeof value === 'object') {
+            if (value.where) {
+                this.sanitizeObject(value.where);
+            }
+            return value;
         }
 
-        if (typeof value === 'object' && value !== null) {
-            return this.sanitizeObject(value);
+        // Si es un string directo (búsqueda simple)
+        if (typeof value === 'string') {
+            return this.cleanString(value);
         }
 
         return value;
     }
 
-    private sanitizeString(str: string): string {
-        // 1. Eliminamos espacios en blanco redundantes
-        let clean = str.trim().replace(/\s+/g, ' ');
+    private sanitizeObject(obj: any) {
+        if (typeof obj !== 'object' || obj === null) return;
 
-        // 2. Removemos caracteres sospechosos que puedan romper Atlas Search o inyectar scripts
-        // Permitimos letras (incluyendo eñes y tildes), números, espacios, guiones y comillas simples/dobles normales
-        clean = clean.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s'\-\"\.\,]/g, '');
+        for (const key of Object.keys(obj)) {
+            // Evitar inyecciones en los nombres de las llaves
+            if (/[$\.]/.test(key) && !key.startsWith('$')) {
+                throw new BadRequestException('El término de búsqueda contiene caracteres no válidos o está vacío.');
+            }
 
-        // 3. Validamos que el string resultante no esté vacío después de la limpieza
-        if (!clean) {
-            throw new BadRequestException('El término de búsqueda contiene caracteres no válidos o está vacío.');
-        }
-
-        return clean;
-    }
-
-    private sanitizeObject(obj: any): any {
-        const sanitizedObj = {};
-        for (const key in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                // Sanitizamos recursivamente si el objeto de la IA viene anidado (como el DTO 'where')
-                sanitizedObj[key] = typeof obj[key] === 'object'
-                    ? this.sanitizeObject(obj[key])
-                    : typeof obj[key] === 'string' ? this.sanitizeString(obj[key]) : obj[key];
+            if (typeof obj[key] === 'string') {
+                obj[key] = this.cleanString(obj[key]);
+            } else if (typeof obj[key] === 'object') {
+                this.sanitizeObject(obj[key]);
             }
         }
-        return sanitizedObj;
+    }
+
+    private cleanString(str: string): string {
+        // Permitir letras, números, espacios, guiones y caracteres del español (tildes, eñes)
+        // Conservamos los operadores de regex seguros
+        const cleaned = str.replace(/[^\w\s\dáéíóúÁÉÍÓÚñÑ.,:\-\/|]/g, '').trim();
+        return cleaned;
     }
 }
